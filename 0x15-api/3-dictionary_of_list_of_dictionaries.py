@@ -1,18 +1,25 @@
 #!/usr/bin/python3
-"""Exports to-do list information of all employees to JSON format."""
+"""
+    Python script that, exports data in the JSON format.
+"""
+
 import json
 import requests
+import sys
 
 if __name__ == "__main__":
-    url = "https://jsonplaceholder.typicode.com/"
-    users = requests.get(url + "users").json()
+    id = sys.argv[1]
+    usr_url = "https://jsonplaceholder.typicode.com/users/{}".format(id)
+    tds_url = "https://jsonplaceholder.typicode.com/users/{}/todos".format(id)
 
-    with open("todo_all_employees.json", "w") as jsonfile:
-        json.dump({
-            u.get("id"): [{
-                "task": t.get("title"),
-                "completed": t.get("completed"),
-                "username": u.get("username")
-            } for t in requests.get(url + "todos",
-                                    params={"userId": u.get("id")}).json()]
-            for u in users}, jsonfile)
+    u = requests.get(usr_url).json()
+    todo = requests.get(tds_url).json()
+
+    with open('{}.json'.format(id), 'w') as json_file:
+        tasks = []
+        for t in todo:
+            tasks.append({"task": t.get("title"),
+                          "completed": t.get("completed"),
+                          "username": u.get("username")})
+        data = {"{}".format(id): tasks}
+        json.dump(data, json_file)
