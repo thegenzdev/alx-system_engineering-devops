@@ -1,53 +1,61 @@
 #!/usr/bin/python3
-"""
-    Recursive function that queries the Reddit API, parses the title of all hot
-    articles, and prints a sorted count of given keywords (case-insensitive,
-    delimited by spaces. Javascript should count as javascript, but java should
-    not).
-"""
-import requests
+""" Count it! """
+from requests import get
 
-def count_words(subreddit, word_list, after=None, word_count={}):
-    if not word_list:
-        return
+REDDIT = "https://www.reddit.com/"
+HEADERS = {'user-agent': 'my-app/0.0.1'}
 
-    headers = {'User-Agent': 'Reddit Keyword Counter'}
-    base_url = f'https://www.reddit.com/r/{subreddit}/hot.json'
-    params = {'limit': 100}
-    if after:
-        params['after'] = after
 
-    response = requests.get(base_url, headers=headers, params=params)
+def count_words(subreddit, word_list, after="", word_dic={}):
+    """
+    Returns a list containing the titles of all hot articles for a
+    given subreddit. If no results are found for the given subreddit,
+    the function should return None.
+    """
+    if not word_dic:
+        for word in word_list:
+            word_dic[word] = 0
 
-    if response.status_code == 200:
-        data = response.json()
-        posts = data['data']['children']
+    if after is None:
+        word_list = [[key, value] for key, value in word_dic.items()]
+        word_list = sorted(word_list, key=lambda x: (-x[1], x[0]))
+        for w in word_list:
+            if w[1]:
+                print("{}: {}".format(w[0].lower(), w[1]))
+        return None
 
-        for post in posts:
-            title = post['data']['title']
-            for word in word_list:
-                if title.lower().count(word.lower()):
-                    if word in word_count:
-                        word_count[word] += title.lower().count(word.lower())
-                    else:
-                        word_count[word] = title.lower().count(word.lower())
+    url = REDDIT + "r/{}/hot/.json".format(subreddit)
 
-        new_after = data['data']['after']
-        if new_after:
-            count_words(subreddit, word_list, new_after, word_count)
-        else:
-            sorted_word_count = sorted(word_count.items(), key=lambda item: (-item[1], item[0]))
-            for word, count in sorted_word_count:
-                print(f'{word}: {count}')
-    else:
-        print("Subreddit not found or an error occurred.")
+    params = {
+        'limit': 100,
+        'after': after
+    }
 
-if __name__ == '__main__':
-    import sys
-    if len(sys.argv) < 3:
-        print("Usage: {} <subreddit> <list of keywords>".format(sys.argv[0]))
-        print("Ex: {} programming 'python java javascript'".format(sys.argv[0]))
-    else:
-        subreddit = sys.argv[1]
-        keywords = [x.lower() for x in sys.argv[2].split()]
-        count_words(subreddit, keywords)
+    r = get(url, headers=HEADERS, params=params, allow_redirects=False)
+
+    if r.status_code != 200:
+        return None
+
+    try:
+        js = r.json()
+
+    except ValueError:
+        return None
+
+    try:
+
+        data = js.get("data")
+        after = data.get("after")
+        children = data.get("children")
+        for child in children:
+            post = child.get("data")
+            title = post.get("title")
+            lower = [s.lower() for s in title.split(' ')]
+
+            for w in word_list:
+                word_dic[w] += lower.count(w.lower())
+
+    except:
+        return None
+
+    count_words(subreddit, word_list, after, word_dic)
